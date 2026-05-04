@@ -24,3 +24,5 @@ myvenv/
 
 # Misc
 .DS_Store
+
+finetuned_clip.pt

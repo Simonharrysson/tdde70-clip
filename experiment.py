@@ -29,6 +29,7 @@ print(f"Device: {device}")
 
 model, _, preprocess = open_clip.create_model_and_transforms("ViT-B-32", pretrained="openai")
 tokenizer = open_clip.get_tokenizer("ViT-B-32")
+model.load_state_dict(torch.load("finetuned_clip.pt", map_location=device))
 model = model.to(device).eval()
 
 # ── Build text embeddings for each class ─────────────────────────────────────

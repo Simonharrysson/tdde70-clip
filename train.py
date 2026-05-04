@@ -20,6 +20,7 @@ print(f"Using: {device}")
 
 model, _, preprocess = open_clip.create_model_and_transforms("ViT-B-32", pretrained="openai")
 tokenizer = open_clip.get_tokenizer("ViT-B-32")
+
 model = model.to(device)
 
 # ── Load Split B (labeled images + captions) ──────────────────────────────────
