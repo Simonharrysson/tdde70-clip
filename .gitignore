@@ -1,0 +1,24 @@
+# Data — too large for git
+RSICD_images/
+RSICD_images.zip
+txtclasses_rsicd.zip
+Leaderboard_data.zip
+leaderboard_images/
+dataset_rsicd.json
+
+# Outputs
+checkpoints/
+results/
+predictions.txt
+predictions.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Misc
+.DS_Store
