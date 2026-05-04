@@ -10,7 +10,7 @@ DATA_ROOT    = Path(".")
 IMAGE_DIR    = DATA_ROOT / "RSICD_images"
 JSON_PATH    = DATA_ROOT / "dataset_rsicd.json"
 CLASSES_DIR  = DATA_ROOT / "txtclasses_rsicd"
-N_SAMPLES    = 20   # how many test images to run
+N_SAMPLES    = 1093   # full test set
 
 # ── Load class names and filename→class mapping ──────────────────────────────
 class_names = sorted(p.stem.lower() for p in CLASSES_DIR.glob("*.txt"))
@@ -57,7 +57,9 @@ with open(JSON_PATH) as f:
 test_images = [img for img in data["images"] if img["split"] == "test"][:N_SAMPLES]
 
 correct = 0
-for img_data in test_images:
+for i, img_data in enumerate(test_images):
+    if i % 100 == 0:
+        print(f"  {i}/{N_SAMPLES}...")
     fname = img_data["filename"]
     true_class = filename_to_class.get(fname, "unknown")
 
@@ -69,16 +71,8 @@ for img_data in test_images:
 
     pred_idx = scores.argmax().item()
     pred_class = class_names[pred_idx]
-    top3 = scores.topk(3)
 
     hit = pred_class == true_class
     correct += hit
-    mark = "✓" if hit else "✗"
-    print(f"{mark} {fname}")
-    print(f"  true: {true_class}  |  pred: {pred_class}")
-    top3_str = "  |  ".join(
-        f"{class_names[i]} ({scores[i]:.2f})" for i in top3.indices
-    )
-    print(f"  top3: {top3_str}\n")
 
 print(f"Accuracy on {N_SAMPLES} samples: {correct}/{N_SAMPLES} = {correct/N_SAMPLES:.0%}")
