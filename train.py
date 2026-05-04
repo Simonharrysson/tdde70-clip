@@ -10,9 +10,9 @@ DATA_ROOT   = Path(".")
 IMAGE_DIR   = DATA_ROOT / "RSICD_images"
 JSON_PATH   = DATA_ROOT / "dataset_rsicd.json"
 
-EPOCHS      = 5
+EPOCHS      = 3
 BATCH_SIZE  = 32
-LR          = 1e-5
+LR          = 1e-6
 
 # ── Load model ────────────────────────────────────────────────────────────────
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,11 +27,12 @@ model = model.to(device)
 with open(JSON_PATH) as f:
     data = json.load(f)
 
-# Split B is called "val" in the json
+# Split B is called "val" in the json — use all 5 captions per image
 samples = [
-    (img["filename"], img["sentences"][0]["raw"])
+    (img["filename"], sentence["raw"])
     for img in data["images"]
     if img["split"] == "val"
+    for sentence in img["sentences"]
 ]
 print(f"Training on {len(samples)} labeled images")
 
