@@ -21,6 +21,24 @@ print(f"Using: {device}")
 model, _, preprocess = open_clip.create_model_and_transforms("ViT-B-32", pretrained="openai")
 tokenizer = open_clip.get_tokenizer("ViT-B-32")
 
+# Freeze everything first
+for param in model.parameters():
+    param.requires_grad = False
+
+# Only unfreeze the last 3 transformer blocks in the image encoder
+# and the last 3 in the text encoder
+for block in list(model.visual.transformer.resblocks)[-3:]:
+    for param in block.parameters():
+        param.requires_grad = True
+
+for block in list(model.transformer.resblocks)[-3:]:
+    for param in block.parameters():
+        param.requires_grad = True
+
+trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+total     = sum(p.numel() for p in model.parameters())
+print(f"Training {trainable:,} / {total:,} parameters")
+
 model = model.to(device)
 
 # ── Load Split B (labeled images + captions) ──────────────────────────────────
