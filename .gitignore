@@ -18,8 +18,8 @@ predictions.zip
 __pycache__/
 *.pyc
 *.pyo
-.venv/
-venv/
+.myvenv/
+myvenv/
 *.egg-info/
 
 # Misc
