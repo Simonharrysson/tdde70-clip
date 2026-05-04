@@ -10,7 +10,7 @@ DATA_ROOT    = Path(".")
 IMAGE_DIR    = DATA_ROOT / "RSICD_images"
 JSON_PATH    = DATA_ROOT / "dataset_rsicd.json"
 CLASSES_DIR  = DATA_ROOT / "txtclasses_rsicd"
-N_SAMPLES    = 20   # how many test images to run
+N_SAMPLES    = 1093   # how many test images to run
 
 # ── Load class names and filename→class mapping ──────────────────────────────
 class_names = sorted(p.stem.lower() for p in CLASSES_DIR.glob("*.txt"))
