@@ -55,7 +55,7 @@ print(f"Classes ({len(class_names)}): {class_names}\n")
 with open(JSON_PATH) as f:
     data = json.load(f)
 
-test_images = [img for img in data["images"] if img["split"] == "test"][:N_SAMPLES]
+test_images = [img for img in data["images"] if img["split"] == "train"][:N_SAMPLES]
 
 correct = 0
 for i, img_data in enumerate(test_images):

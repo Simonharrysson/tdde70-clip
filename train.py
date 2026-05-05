@@ -6,6 +6,7 @@ from PIL import Image
 from pathlib import Path
 from torchvision import transforms
 from dataset import make_loader
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 # ── Settings ─────────────────────────────────────────────────────────────────
 DATA_ROOT   = Path(".")
@@ -54,6 +55,15 @@ for block in list(model.transformer.resblocks)[-3:]:
         param.requires_grad = True
 
 
+# Unfreeze the visual projection
+if model.visual.proj is not None:
+    model.visual.proj.requires_grad = True
+
+# Unfreeze the text projection
+if hasattr(model, 'text_projection') and model.text_projection is not None:
+    model.text_projection.requires_grad = True
+
+
 trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
 total     = sum(p.numel() for p in model.parameters())
 print(f"Training {trainable:,} / {total:,} parameters")
@@ -76,7 +86,7 @@ print(f"Training on {len(samples)} labeled images")
 loader = make_loader(samples, IMAGE_DIR, tokenizer, train_preprocess, BATCH_SIZE)
 
 # ── Training loop ─────────────────────────────────────────────────────────────
-optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay = 0.1)
 
 for epoch in range(EPOCHS):
     model.train()
