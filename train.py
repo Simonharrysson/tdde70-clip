@@ -16,9 +16,10 @@ EPOCHS      = 3
 BATCH_SIZE  = 32
 LR          = 1e-6
 
+#Standard normalization values, don't change!
 normalize = transforms.Normalize(
-    mean=(0.48145466, 0.4578275, 0.40821073), 
-    std=(0.26862954, 0.26130258, 0.27577711)
+    mean=(0.485, 0.456, 0.406), 
+    std=(0.229, 0.224, 0.225)
 )
 
 train_preprocess = transforms.Compose([
