@@ -1,29 +1,21 @@
 from torch.utils.data import Dataset, DataLoader
+from PIL import Image
 
-class CLIPDataset(Dataset):
-    def __init__(self, data_list, image_dir, tokenizer, preprocess):
-        self.data = data_list
+class RSICDDataset(Dataset):
+    def __init__(self, samples, image_dir, tokenizer, preprocess):
+        self.samples = samples
         self.image_dir = image_dir
         self.tokenizer = tokenizer
         self.preprocess = preprocess
 
     def __len__(self):
-        return len(self.data)
+        return len(self.samples)
 
     def __getitem__(self, idx):
-        item = self.data[idx]
-        image_path = self.image_dir / item["filename"]
-        
-        # Load and preprocess image
-        image = self.preprocess(Image.open(image_path).convert("RGB"))
-        
-        # Get one caption (RSICD usually has 5, we'll take the first)
-        caption = item["sentences"][0]["raw"]
-        text = self.tokenizer(caption).squeeze(0)
+        f, cap = self.samples[idx]
+        img = self.preprocess(Image.open(self.image_dir / f).convert("RGB"))
+        return img, self.tokenizer([cap])[0]
 
-        return image, text
-
-# Filter for the training split
-train_data = [img for img in data["images"] if img["split"] == "train"]
-train_dataset = CLIPDataset(train_data, IMAGE_DIR, tokenizer, preprocess)
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+def make_loader(samples, image_dir, tokenizer, preprocess, batch_size):
+    return DataLoader(RSICDDataset(samples, image_dir, tokenizer, preprocess),
+                      batch_size=batch_size, shuffle=True)
