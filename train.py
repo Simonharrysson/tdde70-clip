@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import open_clip
 from PIL import Image
 from pathlib import Path
+from torchvision import transforms
 
 # ── Settings ─────────────────────────────────────────────────────────────────
 DATA_ROOT   = Path(".")
@@ -13,6 +14,21 @@ JSON_PATH   = DATA_ROOT / "dataset_rsicd.json"
 EPOCHS      = 3
 BATCH_SIZE  = 32
 LR          = 1e-6
+
+normalize = transforms.Normalize(
+    mean=(0.48145466, 0.4578275, 0.40821073), 
+    std=(0.26862954, 0.26130258, 0.27577711)
+)
+
+train_preprocess = transforms.Compose([
+    transforms.Resize(224, interpolation=transforms.InterpolationMode.BICUBIC),
+    transforms.CenterCrop(224),
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomVerticalFlip(p=0.5),
+    transforms.RandomRotation(degrees=90), # Satellite images are rotationally invariant
+    transforms.ToTensor(),
+    normalize,
+])
 
 # ── Load model ────────────────────────────────────────────────────────────────
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -34,6 +50,7 @@ for block in list(model.visual.transformer.resblocks)[-3:]:
 for block in list(model.transformer.resblocks)[-3:]:
     for param in block.parameters():
         param.requires_grad = True
+
 
 trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
 total     = sum(p.numel() for p in model.parameters())
