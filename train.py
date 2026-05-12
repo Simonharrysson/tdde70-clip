@@ -1,17 +1,17 @@
-import json
 import torch
 import torch.nn.functional as F
 import open_clip
-from PIL import Image
 from pathlib import Path
 from torchvision import transforms
-from dataset import make_loader
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from dataset import make_loader, load_split_b
+from eval_utils import load_class_map, zero_shot_accuracy
 
 # ── Settings ─────────────────────────────────────────────────────────────────
 DATA_ROOT   = Path(".")
 IMAGE_DIR   = DATA_ROOT / "RSICD_images"
 JSON_PATH   = DATA_ROOT / "dataset_rsicd.json"
+CLASSES_DIR = DATA_ROOT / "txtclasses_rsicd"
 
 EPOCHS      = 3
 BATCH_SIZE  = 32
@@ -19,7 +19,7 @@ LR          = 1e-6
 
 #Standard normalization values, don't change!
 normalize = transforms.Normalize(
-    mean=(0.485, 0.456, 0.406), 
+    mean=(0.485, 0.456, 0.406),
     std=(0.229, 0.224, 0.225)
 )
 
@@ -28,7 +28,7 @@ train_preprocess = transforms.Compose([
     transforms.CenterCrop(224),
     transforms.RandomHorizontalFlip(p=0.5),
     transforms.RandomVerticalFlip(p=0.5),
-    transforms.RandomRotation(degrees=90), # Satellite images are rotationally invariant
+    transforms.RandomRotation(degrees=90),  # Satellite images are rotationally invariant
     transforms.ToTensor(),
     normalize,
 ])
@@ -54,7 +54,6 @@ for block in list(model.transformer.resblocks)[-3:]:
     for param in block.parameters():
         param.requires_grad = True
 
-
 # Unfreeze the visual projection
 if model.visual.proj is not None:
     model.visual.proj.requires_grad = True
@@ -63,30 +62,22 @@ if model.visual.proj is not None:
 if hasattr(model, 'text_projection') and model.text_projection is not None:
     model.text_projection.requires_grad = True
 
-
 trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
 total     = sum(p.numel() for p in model.parameters())
 print(f"Training {trainable:,} / {total:,} parameters")
 
 model = model.to(device)
 
-# ── Load Split B (labeled images + captions) ──────────────────────────────────
-with open(JSON_PATH) as f:
-    data = json.load(f)
+# ── Load data ─────────────────────────────────────────────────────────────────
+train_samples, val_images = load_split_b(JSON_PATH)
+print(f"Train images: {len(train_samples) // 5}  Val images: {len(val_images)}")
 
-# Split B is called "val" in the json — use all 5 captions per image
-samples = [
-    (img["filename"], sentence["raw"])
-    for img in data["images"]
-    if img["split"] == "val"
-    for sentence in img["sentences"]
-]
-print(f"Training on {len(samples)} labeled images")
-
-loader = make_loader(samples, IMAGE_DIR, tokenizer, train_preprocess, BATCH_SIZE)
+loader = make_loader(train_samples, IMAGE_DIR, tokenizer, train_preprocess, BATCH_SIZE)
+class_names, filename_to_class = load_class_map(CLASSES_DIR)
 
 # ── Training loop ─────────────────────────────────────────────────────────────
-optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay = 0.1)
+optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=0.01)
+scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS * len(loader))
 
 for epoch in range(EPOCHS):
     model.train()
@@ -96,34 +87,24 @@ for epoch in range(EPOCHS):
         images = images.to(device)
         tokens = tokens.to(device)
 
-        # Get embeddings from the model
-        image_embeddings = model.encode_image(images)
-        text_embeddings  = model.encode_text(tokens)
+        image_embeddings = F.normalize(model.encode_image(images), dim=-1)
+        text_embeddings  = F.normalize(model.encode_text(tokens), dim=-1)
 
-        # Normalize so we can use cosine similarity
-        image_embeddings = F.normalize(image_embeddings, dim=-1)
-        text_embeddings  = F.normalize(text_embeddings, dim=-1)
-
-        # Similarity matrix: how similar is each image to each caption?
-        # Shape: (batch_size, batch_size)
         similarity = model.logit_scale.exp() * image_embeddings @ text_embeddings.T
-
-        # The correct match for image i is caption i (diagonal of the matrix)
-        labels = torch.arange(images.shape[0]).to(device)
-
-        # Loss: push correct pairs together, wrong pairs apart
-        loss_images   = F.cross_entropy(similarity, labels)
-        loss_captions = F.cross_entropy(similarity.T, labels)
-        loss = (loss_images + loss_captions) / 2
+        labels     = torch.arange(images.shape[0]).to(device)
+        loss       = (F.cross_entropy(similarity, labels) + F.cross_entropy(similarity.T, labels)) / 2
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        scheduler.step()
 
         total_loss += loss.item()
 
     avg_loss = total_loss / len(loader)
-    print(f"Epoch {epoch + 1}/{EPOCHS}  loss: {avg_loss:.4f}")
+    val_acc  = zero_shot_accuracy(model, tokenizer, val_images, IMAGE_DIR, preprocess,
+                                  class_names, filename_to_class, device)
+    print(f"Epoch {epoch + 1}/{EPOCHS}  loss: {avg_loss:.4f}  val_acc: {val_acc:.1%}")
 
 # ── Save the fine-tuned model ─────────────────────────────────────────────────
 torch.save(model.state_dict(), "finetuned_clip.pt")
