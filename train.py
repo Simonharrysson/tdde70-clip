@@ -4,8 +4,27 @@ import open_clip
 from pathlib import Path
 from torchvision import transforms
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from dataset import make_loader, load_split_b
+import json
+import random
+from dataset import make_loader
 from eval_utils import load_class_map, zero_shot_accuracy
+
+def load_split_b(json_path, val_ratio=0.1, seed=42):
+    with open(json_path) as f:
+        data = json.load(f)
+    images = [img for img in data["images"] if img["split"] == "val"]
+    random.seed(seed)
+    random.shuffle(images)
+    split = int((1 - val_ratio) * len(images))
+    train_images = images[:split]
+    val_images   = images[split:]
+    train_samples = [
+        (img["filename"], sentence["raw"])
+        for img in train_images
+        for sentence in img["sentences"]
+    ]
+    val_filenames = [img["filename"] for img in val_images]
+    return train_samples, val_filenames
 
 # ── Settings ─────────────────────────────────────────────────────────────────
 DATA_ROOT   = Path(".")
