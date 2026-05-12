@@ -21,6 +21,8 @@ __pycache__/
 .myvenv/
 myvenv/
 *.egg-info/
+clip_venv/
+.clip_venv/
 
 # Misc
 .DS_Store
